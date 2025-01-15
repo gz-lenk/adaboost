@@ -62,7 +62,7 @@ class CamouflageDataset(Dataset):
 image_transform = transforms.Compose([
     transforms.ToTensor(),  # 将图像转换为 PyTorch 张量
     transforms.Resize((300,400)),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
+    # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 归一化
 ])
 
 # 定义掩码变换
@@ -153,7 +153,11 @@ class MLPClassifier(nn.Module):
         return x
 
 # 初始化模型
-model = MLPClassifier(input_dim=538, output_dim=120000, hidden_dim=6400)
+# model = MLPClassifier(input_dim=538, output_dim=120000, hidden_dim=6400)
+model = deeplabv3_resnet101(pretrained=False, num_classes=1)
+# model = model.to('cuda' if torch.cuda.is_available() else 'cpu')
+model = model.to(torch.device('cpu'))
+
 # 定义损失函数为二进制交叉熵损失 (BCELoss)
 criterion = nn.BCELoss()
 # 定义优化器为 Adam
@@ -161,16 +165,22 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 # 训练
 total_epochs = 2
+# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = torch.device('cpu')
 features_list = []
 labels_list = []
 for epoch in range(total_epochs):
     running_loss = 0.0
     for iter, (images, masks) in enumerate(train_loader, start=1):
+        images = images.to(device)
+        masks = masks.to(device)
         optimizer.zero_grad()
-        features_list = extract_features(images, features_list)
-        labels_list = extract_labels(masks, labels_list)
-        outputs = model(torch.tensor(features_list, dtype=torch.float32))
-        loss = criterion(outputs, torch.tensor(labels_list, dtype=torch.float32))
+        # features_list = extract_features(images, features_list)
+        # labels_list = extract_labels(masks, labels_list)
+        # outputs = model(torch.tensor(features_list, dtype=torch.float32).to(device))
+        # loss = criterion(outputs, torch.tensor(labels_list, dtype=torch.float32).to(device))
+        outputs = model(images)['out']
+        loss = criterion(outputs, masks)
         loss.backward()
         optimizer.step()
 
